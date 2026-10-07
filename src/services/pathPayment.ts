@@ -9,6 +9,9 @@ import {
 import { logger } from '../utils/logger';
 import { retryAsync } from '../utils/retry';
 import { calculateSlippageProtection } from '../utils/slippage';
+import { initiateSEP24Deposit } from './sep24Deposit';
+import { ANCHORS } from '../config/anchors';
+import type { AnchorConfig } from '../types';
 
 const server = new Horizon.Server(
   process.env.HORIZON_URL || 'https://horizon-testnet.stellar.org'
@@ -27,6 +30,28 @@ interface OffRampParams {
   slippagePercent?: number;
 }
 
+interface OffRampResult {
+  txHash: string;
+  depositUrl?: {
+    id: string;
+    type: 'interactive';
+    url: string;
+  };
+}
+
+/**
+ * Resolves an anchor config from a Stellar asset by matching issuer.
+ * Returns the anchor config if the issuer matches a configured anchor.
+ */
+function resolveAnchorConfig(asset: Asset): AnchorConfig | null {
+  for (const anchor of Object.values(ANCHORS)) {
+    if (anchor.issuer === asset.issuer || anchor.code === asset.code) {
+      return anchor;
+    }
+  }
+  return null;
+}
+
 export async function executePathPayment({
   developerKeypair,
   sendAmount,
@@ -34,9 +59,9 @@ export async function executePathPayment({
   destAsset,
   destMin,
   slippagePercent = 2,
-}: OffRampParams): Promise<string> {
+}: OffRampParams): Promise<OffRampResult> {
   return retryAsync(async () => {
-    logger.debug(`Executing path payment: ${sendAmount} ${sendAsset.code} → ${destAsset.code}`);
+    logger.debug(`Executing path payment: ${sendAmount} ${sendAsset.code} to ${destAsset.code}`);
 
     // Calculate slippage-protected minimum if not provided
     let finalDestMin = destMin;
@@ -72,6 +97,32 @@ export async function executePathPayment({
     tx.sign(developerKeypair);
     const result = await server.submitTransaction(tx);
     logger.info(`Path payment successful: ${result.hash}`);
-    return result.hash;
+
+    // Trigger SEP-24 interactive deposit to off-ramp to fiat
+    const anchorConfig = resolveAnchorConfig(destAsset);
+    let depositUrl: OffRampResult['depositUrl'] | undefined;
+
+    if (anchorConfig) {
+      try {
+        const depositResponse = await initiateSEP24Deposit({
+          anchorConfig,
+          amount: sendAmount,
+          userPublicKey: developerKeypair.publicKey(),
+        });
+        depositUrl = {
+          id: depositResponse.id,
+          type: depositResponse.type,
+          url: depositResponse.url,
+        };
+        logger.info(`SEP-24 deposit initiated: ${depositResponse.url}`);
+      } catch (err) {
+        logger.warn(
+          'SEP-24 deposit initiation failed (non-fatal)',
+          err instanceof Error ? err.message : String(err),
+        );
+      }
+    }
+
+    return { txHash: result.hash, depositUrl };
   }, 3, 2000);
 }
