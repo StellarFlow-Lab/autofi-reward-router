@@ -1,6 +1,8 @@
 import { validateStellarPublicKey, validateStellarSecretKey } from '../utils/validation';
 import { logger } from '../utils/logger';
 
+const DEFAULT_SLIPPAGE_TOLERANCE_PCT = 1;
+
 export interface ValidatedConfig {
   stellar_network: 'testnet' | 'mainnet';
   horizon_url: string;
@@ -10,6 +12,7 @@ export interface ValidatedConfig {
   gbpt_issuer: string;
   soroban_rpc_url: string;
   reward_router_contract_id: string;
+  slippage_tolerance_pct: number;
 }
 
 export function validateEnvironment(): ValidatedConfig {
@@ -55,10 +58,19 @@ export function validateEnvironment(): ValidatedConfig {
     errors.push('REWARD_ROUTER_CONTRACT_ID is required and must start with "C"');
   }
 
+  const slippageRaw = process.env.SLIPPAGE_TOLERANCE_PCT;
+  const slippage_tolerance_pct = slippageRaw
+    ? parseFloat(slippageRaw)
+    : DEFAULT_SLIPPAGE_TOLERANCE_PCT;
+
+  if (slippageRaw && (isNaN(slippage_tolerance_pct) || slippage_tolerance_pct <= 0 || slippage_tolerance_pct > 100)) {
+    errors.push('SLIPPAGE_TOLERANCE_PCT must be a positive number between 0 and 100');
+  }
+
   if (errors.length > 0) {
     logger.error('Environment validation failed:');
     errors.forEach(e => logger.error(`  - ${e}`));
-    throw new Error(`${errors.length} environment variable(s) missing or invalid`);
+    throw new Error(errors.length + ' environment variable(s) missing or invalid');
   }
 
   return {
@@ -70,5 +82,6 @@ export function validateEnvironment(): ValidatedConfig {
     gbpt_issuer: gbpt_issuer as string,
     soroban_rpc_url: soroban_rpc_url as string,
     reward_router_contract_id: reward_router_contract_id as string,
+    slippage_tolerance_pct,
   };
 }
