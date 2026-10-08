@@ -1,16 +1,18 @@
 [package]
 name = "reward_router"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
+publish = false
 
 [lib]
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
+doctest = false
 
 [dependencies]
-soroban-sdk = { version = "20.0.0", features = ["alloc"] }
+soroban-sdk = "25"
 
 [dev-dependencies]
-soroban-sdk = { version = "20.0.0", features = ["testutils"] }
+soroban-sdk = { version = "25", features = ["testutils"] }
 
 [profile.release]
 opt-level = "z"
