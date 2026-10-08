@@ -1,51 +1,63 @@
-import { logger } from '../utils/logger';
+import { sleep } from '../utils/retry';
 
-interface RateLimitBucket {
-  tokens: number;
-  lastRefill: number;
-}
-
+/**
+ * Token-bucket rate limiter. Calls for the same key are serialized, so
+ * concurrent callers can't all observe a full bucket at once.
+ */
 export class RateLimiter {
-  private buckets: Map<string, RateLimitBucket> = new Map();
-  private readonly capacity: number;
-  private readonly refillRatePerSecond: number;
+  private buckets = new Map<string, { tokens: number; lastRefill: number }>();
+  private queues = new Map<string, Promise<void>>();
 
-  constructor(capacity: number = 10, refillRatePerSecond: number = 1) {
-    this.capacity = capacity;
-    this.refillRatePerSecond = refillRatePerSecond;
+  constructor(
+    private readonly capacity = 10,
+    private readonly refillRatePerSecond = 1,
+    private readonly now: () => number = Date.now,
+  ) {
+    if (capacity < 1) throw new Error('capacity must be >= 1');
+    if (refillRatePerSecond <= 0) throw new Error('refillRatePerSecond must be > 0');
   }
 
-  async waitIfNeeded(key: string): Promise<void> {
-    let bucket = this.buckets.get(key);
+  waitIfNeeded(key: string): Promise<void> {
+    const prev = this.queues.get(key) ?? Promise.resolve();
+    const next = prev.then(() => this.take(key));
+    this.queues.set(key, next.catch(() => undefined));
+    return next;
+  }
 
+  private async take(key: string): Promise<void> {
+    const bucket = this.refill(key);
+    if (bucket.tokens < 1) {
+      await sleep(((1 - bucket.tokens) / this.refillRatePerSecond) * 1000);
+      this.refill(key);
+    }
+    bucket.tokens -= 1;
+  }
+
+  private refill(key: string) {
+    const now = this.now();
+    let bucket = this.buckets.get(key);
     if (!bucket) {
-      bucket = { tokens: this.capacity, lastRefill: Date.now() };
+      bucket = { tokens: this.capacity, lastRefill: now };
       this.buckets.set(key, bucket);
     }
-
-    // Refill tokens based on elapsed time
-    const now = Date.now();
-    const elapsedSeconds = (now - bucket.lastRefill) / 1000;
-    bucket.tokens = Math.min(this.capacity, bucket.tokens + elapsedSeconds * this.refillRatePerSecond);
+    const elapsed = (now - bucket.lastRefill) / 1000;
+    bucket.tokens = Math.min(this.capacity, bucket.tokens + elapsed * this.refillRatePerSecond);
     bucket.lastRefill = now;
+    return bucket;
+  }
 
-    if (bucket.tokens < 1) {
-      const waitTime = (1 - bucket.tokens) / this.refillRatePerSecond * 1000;
-      logger.debug(`Rate limit: waiting ${Math.ceil(waitTime)}ms for ${key}`);
-      await new Promise(resolve => setTimeout(resolve, waitTime));
-      bucket.tokens = 0;
-    } else {
-      bucket.tokens -= 1;
-    }
+  /** Tokens currently available for a key (for monitoring/tests). */
+  available(key: string): number {
+    return this.refill(key).tokens;
   }
 
   reset(key?: string): void {
     if (key) {
       this.buckets.delete(key);
+      this.queues.delete(key);
     } else {
       this.buckets.clear();
+      this.queues.clear();
     }
   }
 }
-
-export const listenerRateLimiter = new RateLimiter(5, 0.5); // 5 calls per 10 seconds
