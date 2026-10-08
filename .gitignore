@@ -1,5 +1,8 @@
 node_modules/
 dist/
+coverage/
 .env
-target/
+.autofi-state.json*
+contracts/**/target/
+contracts/**/test_snapshots/
 *.wasm
