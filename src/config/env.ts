@@ -47,6 +47,7 @@ export interface AppConfig {
   httpPort: number;
   githubWebhookSecret?: string;
   adminToken?: string;
+  corsOrigin?: string;
 
   rateLimitCapacity: number;
   rateLimitRefillPerSec: number;
@@ -221,6 +222,7 @@ export function loadConfig(env: Env = process.env): AppConfig {
     httpPort,
     githubWebhookSecret: env.GITHUB_WEBHOOK_SECRET?.trim() || undefined,
     adminToken: env.ADMIN_TOKEN?.trim() || undefined,
+    corsOrigin: env.CORS_ORIGIN?.trim() || undefined,
     rateLimitCapacity,
     rateLimitRefillPerSec,
     stateFile: env.STATE_FILE?.trim() || '.autofi-state.json',
