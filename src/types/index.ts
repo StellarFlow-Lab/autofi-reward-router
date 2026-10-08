@@ -1,26 +1,73 @@
+export type FiatCurrency = 'NGN' | 'USD' | 'GBP';
+export type RewardSource = 'drips' | 'github_bounty' | 'manual';
+
+/** Off-ramp preferences, as stored in the reward_router Soroban contract. */
 export interface RoutePreferences {
-  off_ramp_pct: number;       // e.g. 70 = 70%
-  keep_crypto_pct: number;    // e.g. 30 = 30%
-  anchor_asset_code: string;  // e.g. "NGNX" | "USDC" | "GBPT"
-  anchor_issuer: string;
+  offRampPct: number;      // 0-100
+  keepCryptoPct: number;   // 0-100, offRampPct + keepCryptoPct === 100
+  anchorAssetCode: string; // e.g. "NGNX" | "USDC" | "GBPT"
+  anchorIssuer: string;    // G... address
 }
 
+/** A Stellar asset in plain-data form (native XLM has no issuer). */
+export interface AssetRef {
+  code: string;
+  issuer?: string;
+}
+
+/** An inbound payment that looks like a developer reward. */
 export interface RewardEvent {
+  /** Horizon operation id — globally unique, used for idempotency. */
+  id: string;
+  txHash: string;
   developerPublicKey: string;
+  from: string;
   amount: string;
-  assetCode: string;
-  assetIssuer: string;
-  sourceId: 'drips' | 'github_bounty' | 'manual';
+  asset: AssetRef;
+  source: RewardSource;
+  receivedAt: string;
 }
 
 export interface AnchorConfig {
   code: string;
   issuer: string;
   homeDomain: string;
-  currency: 'NGN' | 'USD' | 'GBP';
+  currency: FiatCurrency;
 }
 
-// Re-export utils for external use
-export * from '../utils/validation';
-export * from '../utils/metrics';
-export * from '../utils/logger';
+export type OffRampStatus =
+  | 'processing'
+  | 'skipped'
+  | 'swapped'
+  | 'withdrawal_pending'
+  | 'completed'
+  | 'failed';
+
+export interface WithdrawalInfo {
+  anchorTxId: string;
+  homeDomain: string;
+  interactiveUrl: string;
+  status: string;
+  paymentTxHash?: string;
+  updatedAt: string;
+}
+
+/** One processed reward and everything AutoFi did with it. */
+export interface RewardRecord {
+  eventId: string;
+  rewardTxHash: string;
+  developerPublicKey: string;
+  source: RewardSource;
+  receivedAmount: string;
+  receivedAsset: string;
+  offRampAmount?: string;
+  destAsset?: string;
+  destAmount?: string;
+  swapTxHash?: string;
+  withdrawal?: WithdrawalInfo;
+  status: OffRampStatus;
+  reason?: string;
+  dryRun: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
