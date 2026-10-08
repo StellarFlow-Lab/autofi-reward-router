@@ -1,8 +1,8 @@
-import { Keypair } from '@stellar/stellar-sdk';
+import { StrKey } from '@stellar/stellar-sdk';
+import { isPositiveAmount } from './amount';
 
 export function validateAmount(amount: string): boolean {
-  const num = parseFloat(amount);
-  return !isNaN(num) && num > 0 && num <= 922337203685.4775; // Max stroops
+  return isPositiveAmount(amount);
 }
 
 export function validatePercentage(value: number): boolean {
@@ -14,23 +14,17 @@ export function validatePercentageSplit(offRamp: number, keepCrypto: number): bo
 }
 
 export function validateStellarPublicKey(key: string): boolean {
-  try {
-    Keypair.fromPublicKey(key);
-    return true;
-  } catch {
-    return false;
-  }
+  return typeof key === 'string' && StrKey.isValidEd25519PublicKey(key);
 }
 
 export function validateStellarSecretKey(key: string): boolean {
-  try {
-    Keypair.fromSecret(key);
-    return true;
-  } catch {
-    return false;
-  }
+  return typeof key === 'string' && StrKey.isValidEd25519SecretSeed(key);
+}
+
+export function validateContractId(id: string): boolean {
+  return typeof id === 'string' && StrKey.isValidContract(id);
 }
 
 export function validateAssetCode(code: string): boolean {
-  return code.length >= 1 && code.length <= 12 && /^[a-zA-Z0-9]+$/.test(code);
+  return /^[a-zA-Z0-9]{1,12}$/.test(code);
 }

@@ -1,55 +1,73 @@
+import { addAmounts } from './amount';
+
 export interface Metrics {
-  totalRewardsProcessed: number;
-  totalAmountProcessed: string;
+  startedAt: string;
+  rewardsReceived: number;
+  rewardsSkipped: number;
   successfulSwaps: number;
   failedSwaps: number;
-  avgProcessingTime: number;
+  withdrawalsStarted: number;
+  withdrawalsCompleted: number;
+  /** Total off-ramped amount per source asset code. */
+  offRampedByAsset: Record<string, string>;
+  avgProcessingTimeMs: number;
+  lastError?: { at: string; message: string };
 }
 
-class MetricsCollector {
-  private metrics: Metrics = {
-    totalRewardsProcessed: 0,
-    totalAmountProcessed: '0',
-    successfulSwaps: 0,
-    failedSwaps: 0,
-    avgProcessingTime: 0,
-  };
+export class MetricsCollector {
+  private metrics!: Metrics;
+  private totalProcessingMs = 0;
 
-  private processingTimes: number[] = [];
+  constructor() {
+    this.reset();
+  }
 
-  recordSuccess(amount: string, processingTimeMs: number) {
-    this.metrics.totalRewardsProcessed++;
+  recordReceived() {
+    this.metrics.rewardsReceived++;
+  }
+
+  recordSkipped() {
+    this.metrics.rewardsSkipped++;
+  }
+
+  recordSuccess(assetCode: string, amount: string, processingTimeMs: number) {
     this.metrics.successfulSwaps++;
-    this.metrics.totalAmountProcessed = (
-      parseFloat(this.metrics.totalAmountProcessed) + parseFloat(amount)
-    ).toString();
-    this.processingTimes.push(processingTimeMs);
-    this.updateAvgTime();
+    const prev = this.metrics.offRampedByAsset[assetCode] ?? '0';
+    this.metrics.offRampedByAsset[assetCode] = addAmounts(prev, amount);
+    this.totalProcessingMs += processingTimeMs;
+    this.metrics.avgProcessingTimeMs = Math.round(this.totalProcessingMs / this.metrics.successfulSwaps);
   }
 
-  recordFailure() {
+  recordFailure(message: string) {
     this.metrics.failedSwaps++;
+    this.metrics.lastError = { at: new Date().toISOString(), message };
   }
 
-  private updateAvgTime() {
-    if (this.processingTimes.length === 0) return;
-    const sum = this.processingTimes.reduce((a, b) => a + b, 0);
-    this.metrics.avgProcessingTime = sum / this.processingTimes.length;
+  recordWithdrawalStarted() {
+    this.metrics.withdrawalsStarted++;
+  }
+
+  recordWithdrawalCompleted() {
+    this.metrics.withdrawalsCompleted++;
   }
 
   getMetrics(): Metrics {
-    return { ...this.metrics };
+    return structuredClone(this.metrics);
   }
 
   reset() {
+    this.totalProcessingMs = 0;
     this.metrics = {
-      totalRewardsProcessed: 0,
-      totalAmountProcessed: '0',
+      startedAt: new Date().toISOString(),
+      rewardsReceived: 0,
+      rewardsSkipped: 0,
       successfulSwaps: 0,
       failedSwaps: 0,
-      avgProcessingTime: 0,
+      withdrawalsStarted: 0,
+      withdrawalsCompleted: 0,
+      offRampedByAsset: {},
+      avgProcessingTimeMs: 0,
     };
-    this.processingTimes = [];
   }
 }
 
