@@ -5,30 +5,55 @@ export enum LogLevel {
   ERROR = 3,
 }
 
-class Logger {
-  private level: LogLevel = LogLevel.INFO;
+export interface Logger {
+  debug(msg: string, meta?: unknown): void;
+  info(msg: string, meta?: unknown): void;
+  warn(msg: string, meta?: unknown): void;
+  error(msg: string, meta?: unknown): void;
+  child(scope: string): Logger;
+  setLevel(level: LogLevel): void;
+}
 
-  setLevel(level: LogLevel) {
-    this.level = level;
-  }
+export function errorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  return typeof err === 'string' ? err : JSON.stringify(err);
+}
 
-  debug(msg: string, ...args: any[]) {
-    if (this.level <= LogLevel.DEBUG) console.log(`[DEBUG] ${msg}`, ...args);
-  }
-
-  info(msg: string, ...args: any[]) {
-    if (this.level <= LogLevel.INFO) console.log(`[INFO] ${msg}`, ...args);
-  }
-
-  warn(msg: string, ...args: any[]) {
-    if (this.level <= LogLevel.WARN) console.warn(`[WARN] ${msg}`, ...args);
-  }
-
-  error(msg: string, err?: Error | string, ...args: any[]) {
-    if (this.level <= LogLevel.ERROR) {
-      console.error(`[ERROR] ${msg}`, err instanceof Error ? err.message : err, ...args);
-    }
+function formatMeta(meta: unknown): string {
+  if (meta === undefined) return '';
+  if (meta instanceof Error) return ` ${meta.message}`;
+  if (typeof meta === 'string') return ` ${meta}`;
+  try {
+    return ` ${JSON.stringify(meta)}`;
+  } catch {
+    return ` ${String(meta)}`;
   }
 }
 
-export const logger = new Logger();
+const SECRET_RE = /S[A-Z2-7]{55}/g;
+
+/** Never let a Stellar secret key reach the logs. */
+function redact(line: string): string {
+  return line.replace(SECRET_RE, 'S***REDACTED***');
+}
+
+export function createLogger(scope = 'autofi', state = { level: LogLevel.INFO }): Logger {
+  const write = (level: LogLevel, label: string, msg: string, meta: unknown) => {
+    if (state.level > level) return;
+    const line = redact(`${new Date().toISOString()} ${label.padEnd(5)} [${scope}] ${msg}${formatMeta(meta)}`);
+    (level >= LogLevel.WARN ? console.error : console.log)(line);
+  };
+
+  return {
+    debug: (msg, meta) => write(LogLevel.DEBUG, 'DEBUG', msg, meta),
+    info: (msg, meta) => write(LogLevel.INFO, 'INFO', msg, meta),
+    warn: (msg, meta) => write(LogLevel.WARN, 'WARN', msg, meta),
+    error: (msg, meta) => write(LogLevel.ERROR, 'ERROR', msg, meta),
+    child: (child) => createLogger(`${scope}:${child}`, state),
+    setLevel: (level) => {
+      state.level = level;
+    },
+  };
+}
+
+export const logger = createLogger();
