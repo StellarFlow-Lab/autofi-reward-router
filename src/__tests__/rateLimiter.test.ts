@@ -1,32 +1,31 @@
-import { RateLimiter } from '../src/services/rateLimiter';
+import { RateLimiter } from '../services/rateLimiter';
 
-describe('Rate Limiter', () => {
-  test('allows requests within capacity', async () => {
+describe('RateLimiter', () => {
+  test('allows bursts up to capacity without waiting', async () => {
     const limiter = new RateLimiter(3, 1);
     const start = Date.now();
-
-    await limiter.waitIfNeeded('test-key');
-    await limiter.waitIfNeeded('test-key');
-    await limiter.waitIfNeeded('test-key');
-
-    const elapsed = Date.now() - start;
-    expect(elapsed).toBeLessThan(100);
+    await Promise.all([limiter.waitIfNeeded('k'), limiter.waitIfNeeded('k'), limiter.waitIfNeeded('k')]);
+    expect(Date.now() - start).toBeLessThan(100);
   });
 
-  test('throttles requests beyond capacity', async () => {
-    const limiter = new RateLimiter(1, 1);
+  test('throttles beyond capacity, even for concurrent callers', async () => {
+    const limiter = new RateLimiter(1, 10); // 1 token per 100ms
     const start = Date.now();
-
-    await limiter.waitIfNeeded('test-key');
-    await limiter.waitIfNeeded('test-key');
-
-    const elapsed = Date.now() - start;
-    expect(elapsed).toBeGreaterThan(800);
+    await Promise.all([limiter.waitIfNeeded('k'), limiter.waitIfNeeded('k'), limiter.waitIfNeeded('k')]);
+    expect(Date.now() - start).toBeGreaterThanOrEqual(180);
   });
 
-  test('resets buckets', () => {
-    const limiter = new RateLimiter(1, 1);
-    limiter.reset('test-key');
-    expect(true).toBe(true);
+  test('keys are independent and reset refills', async () => {
+    const limiter = new RateLimiter(1, 0.001);
+    await limiter.waitIfNeeded('a');
+    expect(limiter.available('a')).toBeLessThan(1);
+    expect(limiter.available('b')).toBe(1);
+    limiter.reset('a');
+    expect(limiter.available('a')).toBe(1);
+  });
+
+  test('validates arguments', () => {
+    expect(() => new RateLimiter(0, 1)).toThrow();
+    expect(() => new RateLimiter(1, 0)).toThrow();
   });
 });
