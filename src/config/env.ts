@@ -48,6 +48,8 @@ export interface AppConfig {
   githubWebhookSecret?: string;
   adminToken?: string;
   corsOrigin?: string;
+  /** Webhook for failure / payout alerts. */
+  alertWebhookUrl?: string;
 
   rateLimitCapacity: number;
   rateLimitRefillPerSec: number;
@@ -207,6 +209,12 @@ export function loadConfig(env: Env = process.env): AppConfig {
     problems.push(`CORS_ORIGIN must be an origin like https://app.example.com (no path or trailing slash), got "${corsOrigin}"`);
   }
 
+  // --- Alerts ---
+  const alertWebhookUrl = env.ALERT_WEBHOOK_URL?.trim() || undefined;
+  if (alertWebhookUrl && !/^https?:\/\/[^\s]+$/.test(alertWebhookUrl)) {
+    problems.push('ALERT_WEBHOOK_URL must be an http(s) URL');
+  }
+
   const logLevelName = (env.LOG_LEVEL ?? (bool(env.DEBUG, false) ? 'debug' : 'info')).toUpperCase();
   const logLevel = (LogLevel as unknown as Record<string, LogLevel>)[logLevelName] ?? LogLevel.INFO;
 
@@ -238,6 +246,7 @@ export function loadConfig(env: Env = process.env): AppConfig {
     githubWebhookSecret: env.GITHUB_WEBHOOK_SECRET?.trim() || undefined,
     adminToken,
     corsOrigin,
+    alertWebhookUrl,
     rateLimitCapacity,
     rateLimitRefillPerSec,
     stateFile: env.STATE_FILE?.trim() || '.autofi-state.json',

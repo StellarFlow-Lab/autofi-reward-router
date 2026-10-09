@@ -7,6 +7,7 @@ import { startPaymentListener } from './services/paymentListener';
 import { RateLimiter } from './services/rateLimiter';
 import { FallbackPreferencesProvider, SorobanPreferencesClient } from './services/sorobanClient';
 import { StateStore } from './services/stateStore';
+import { createAlerter } from './services/alerter';
 import { StellarWallet } from './services/stellarWallet';
 import { createHttpServer, HttpError, listen } from './server/httpServer';
 import { logger } from './utils/logger';
@@ -24,6 +25,9 @@ export async function startApp(config: AppConfig = loadConfig()): Promise<Runnin
   const log = logger.child('app');
 
   const store = new StateStore(config.stateFile);
+  if (config.alertWebhookUrl) {
+    store.onTransition(createAlerter({ url: config.alertWebhookUrl, network: config.network }));
+  }
   const wallet = new StellarWallet({
     horizonUrl: config.horizonUrl,
     networkPassphrase: config.networkPassphrase,
@@ -107,7 +111,7 @@ export async function startApp(config: AppConfig = loadConfig()): Promise<Runnin
 
   log.info(
     `AutoFi running on ${config.network}${config.dryRun ? ' (DRY RUN — nothing will be submitted)' : ''} | account ${config.publicKey} | ` +
-      `anchors ${Object.keys(config.anchors).join(', ')} | prefs ${config.contractId ? `contract ${config.contractId}` : 'defaults'} | http :${port}`,
+      `anchors ${Object.keys(config.anchors).join(', ')} | alerts ${config.alertWebhookUrl ? 'on' : 'off'} | prefs ${config.contractId ? `contract ${config.contractId}` : 'defaults'} | http :${port}`,
   );
 
   return {

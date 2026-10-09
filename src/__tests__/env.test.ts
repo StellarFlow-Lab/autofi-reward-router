@@ -28,6 +28,12 @@ describe('loadConfig', () => {
     }
   });
 
+  test('ALERT_WEBHOOK_URL must be an http(s) URL', () => {
+    const base = { DEV_PRIVATE_KEY: secret, DEFAULT_ANCHOR: 'SRT' };
+    expect(loadConfig({ ...base, ALERT_WEBHOOK_URL: 'https://hooks.slack.com/services/x' }).alertWebhookUrl).toBe('https://hooks.slack.com/services/x');
+    expect(() => loadConfig({ ...base, ALERT_WEBHOOK_URL: 'not a url' })).toThrow(/ALERT_WEBHOOK_URL/);
+  });
+
   test('mainnet requires a strong ADMIN_TOKEN', () => {
     const base = { STELLAR_NETWORK: 'mainnet', DEV_PRIVATE_KEY: secret, DEFAULT_ANCHOR: 'USDC' };
     expect(() => loadConfig(base)).toThrow(/ADMIN_TOKEN is required on mainnet/);
