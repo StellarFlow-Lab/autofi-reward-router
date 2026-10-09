@@ -54,6 +54,7 @@ export async function startApp(config: AppConfig = loadConfig()): Promise<Runnin
     metrics: metricsCollector,
     githubWebhookSecret: config.githubWebhookSecret,
     adminToken: config.adminToken,
+    corsOrigin: config.corsOrigin,
     info: { network: config.network, account: config.publicKey, dryRun: config.dryRun, anchors: Object.keys(config.anchors) },
     onBounty: (b) =>
       log.info(`GitHub bounty closed: ${b.repo}#${b.number} "${b.title}" → ${b.developer ?? 'unknown'} (${b.amount ?? '?'} ${b.asset ?? ''}). Payout will be routed when it lands on-chain.`),
