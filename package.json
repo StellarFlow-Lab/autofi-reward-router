@@ -18,7 +18,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit",
     "contract:build": "cd contracts/reward_router && stellar contract build",
-    "contract:test": "cd contracts/reward_router && cargo test"
+    "contract:test": "cd contracts/reward_router && cargo test",
+    "check": "npm run typecheck && npm test && npm run build && npm run contract:test"
   },
   "dependencies": {
     "@stellar/stellar-sdk": "12.3.0"
@@ -34,8 +35,16 @@
   "jest": {
     "preset": "ts-jest",
     "testEnvironment": "node",
-    "roots": ["<rootDir>/src"],
-    "testMatch": ["**/__tests__/**/*.test.ts"],
-    "collectCoverageFrom": ["src/**/*.ts", "!src/**/__tests__/**", "!src/index.ts"]
+    "roots": [
+      "<rootDir>/src"
+    ],
+    "testMatch": [
+      "**/__tests__/**/*.test.ts"
+    ],
+    "collectCoverageFrom": [
+      "src/**/*.ts",
+      "!src/**/__tests__/**",
+      "!src/index.ts"
+    ]
   }
 }
