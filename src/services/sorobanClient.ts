@@ -79,7 +79,8 @@ export class ContractCallError extends Error {
 /** Convert the contract's RoutePreferences struct into our TS shape, validating it. */
 export function parsePreferences(raw: unknown): RoutePreferences {
   const r = raw as Record<string, unknown>;
-  const toStr = (v: unknown) => (typeof v === 'string' ? v : Buffer.isBuffer(v) ? v.toString('utf-8') : String(v));
+  const toStr = (v: unknown) =>
+    typeof v === 'string' ? v : v instanceof Uint8Array ? Buffer.from(v).toString('utf-8') : String(v);
   const prefs: RoutePreferences = {
     offRampPct: Number(r?.off_ramp_pct),
     keepCryptoPct: Number(r?.keep_crypto_pct),
