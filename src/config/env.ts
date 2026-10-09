@@ -47,6 +47,7 @@ export interface AppConfig {
   httpPort: number;
   githubWebhookSecret?: string;
   adminToken?: string;
+  corsOrigin?: string;
 
   rateLimitCapacity: number;
   rateLimitRefillPerSec: number;
@@ -191,6 +192,12 @@ export function loadConfig(env: Env = process.env): AppConfig {
   const rateLimitCapacity = num('LISTENER_RATE_LIMIT_CAPACITY', 5, (n) => n >= 1, '>= 1');
   const rateLimitRefillPerSec = num('LISTENER_RATE_LIMIT_REFILL', 0.5, (n) => n > 0, '> 0');
 
+  // --- CORS ---
+  const corsOrigin = env.CORS_ORIGIN?.trim() || undefined;
+  if (corsOrigin && !isOrigin(corsOrigin)) {
+    problems.push(`CORS_ORIGIN must be an origin like https://app.example.com (no path or trailing slash), got "${corsOrigin}"`);
+  }
+
   const logLevelName = (env.LOG_LEVEL ?? (bool(env.DEBUG, false) ? 'debug' : 'info')).toUpperCase();
   const logLevel = (LogLevel as unknown as Record<string, LogLevel>)[logLevelName] ?? LogLevel.INFO;
 
@@ -221,10 +228,21 @@ export function loadConfig(env: Env = process.env): AppConfig {
     httpPort,
     githubWebhookSecret: env.GITHUB_WEBHOOK_SECRET?.trim() || undefined,
     adminToken: env.ADMIN_TOKEN?.trim() || undefined,
+    corsOrigin,
     rateLimitCapacity,
     rateLimitRefillPerSec,
     stateFile: env.STATE_FILE?.trim() || '.autofi-state.json',
     dryRun: bool(env.DRY_RUN, false),
     logLevel,
   };
+}
+
+/** True for a bare http(s) origin, e.g. "https://app.example.com" or "http://localhost:5173". */
+function isOrigin(value: string): boolean {
+  try {
+    const u = new URL(value);
+    return (u.protocol === 'https:' || u.protocol === 'http:') && u.origin === value;
+  } catch {
+    return false;
+  }
 }

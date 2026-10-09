@@ -68,10 +68,12 @@ Put the returned `C...` id in `REWARD_ROUTER_CONTRACT_ID`.
 
 | Function | Auth | Description |
 |---|---|---|
-| `set_preferences(user, prefs)` | `user` | Store the split. `off_ramp_pct + keep_crypto_pct` must equal 100. |
-| `get_preferences(user)` | — | Read the split (panics if unset). |
+| `set_preferences(user, prefs)` | `user` | Store the split. `off_ramp_pct + keep_crypto_pct` must equal 100 (`InvalidSplit`); asset code 1-12 chars (`InvalidAssetCode`). |
+| `get_preferences(user)` | — | Read the split (`NotFound` error if unset). |
 | `has_preferences(user)` | — | Whether a split is stored. |
-| `remove_preferences(user)` | `user` | Delete the split; AutoFi falls back to defaults. |
+| `remove_preferences(user)` | `user` | Delete the split (`NotFound` if unset); AutoFi falls back to defaults. |
+
+The contract emits `PreferencesSet` and `PreferencesRemoved` events, and extends the storage TTL (~30 days) on every read and write.
 
 ## HTTP API
 

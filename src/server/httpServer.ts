@@ -16,6 +16,8 @@ export interface ServerDeps {
   info: Record<string, unknown>;
   githubWebhookSecret?: string;
   adminToken?: string;
+  /** e.g. https://stellarflow-lab.github.io — enables CORS for the web app. */
+  corsOrigin?: string;
   retryWithdrawal?: (eventId: string) => Promise<RewardRecord>;
   onBounty?: (notice: BountyNotice) => void;
 }
@@ -101,6 +103,18 @@ export function createHttpServer(deps: ServerDeps): http.Server {
   };
 
   return http.createServer((req, res) => {
+    // Lets the web app (web/) read /rewards from another origin.
+    if (deps.corsOrigin) {
+      res.setHeader('Access-Control-Allow-Origin', deps.corsOrigin);
+      res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+      res.setHeader('Vary', 'Origin');
+      if (req.method === 'OPTIONS') {
+        res.writeHead(204);
+        res.end();
+        return;
+      }
+    }
     handle(req)
       .then(([status, body]) => send(res, status, body))
       .catch((err) => {

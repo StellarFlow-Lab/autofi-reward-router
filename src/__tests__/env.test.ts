@@ -19,6 +19,15 @@ describe('loadConfig', () => {
     expect(c.dryRun).toBe(false);
   });
 
+  test('CORS_ORIGIN must be a bare origin', () => {
+    const base = { DEV_PRIVATE_KEY: secret, DEFAULT_ANCHOR: 'SRT' };
+    expect(loadConfig({ ...base, CORS_ORIGIN: 'https://app.example.com' }).corsOrigin).toBe('https://app.example.com');
+    expect(loadConfig(base).corsOrigin).toBeUndefined();
+    for (const bad of ['https://app.example.com/', 'https://app.example.com/web', 'app.example.com', '*']) {
+      expect(() => loadConfig({ ...base, CORS_ORIGIN: bad })).toThrow(/CORS_ORIGIN/);
+    }
+  });
+
   test('mainnet uses mainnet USDC and has no SRT', () => {
     const c = loadConfig({ STELLAR_NETWORK: 'mainnet', DEV_PRIVATE_KEY: secret, DEFAULT_ANCHOR: 'USDC' });
     expect(c.anchors.USDC.issuer).toBe(USDC_ISSUER.mainnet);
