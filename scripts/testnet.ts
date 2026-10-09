@@ -4,13 +4,20 @@
  *   npm run testnet:setup            create + fund accounts, seed a DEX market, write .env
  *   npm run testnet:reward -- 25     pay the app 25 XLM from the "Drips" payer account
  *   npm run testnet:balances         show the app wallet's balances
+ *   npm run testnet:anchor -- 500    get test SRT from testanchor.stellar.org and open an SRT/XLM market
+ *   npm run testnet:prefs -- 60 SRT  store a 60% off-ramp rule (to SRT or NGNX) in the reward_router contract
  *
  * Testnet only. Nothing here can touch mainnet funds.
  */
 import { copyFileSync, existsSync, readFileSync, writeFileSync } from 'fs';
-import { Asset, BASE_FEE, Horizon, Keypair, Networks, Operation, TransactionBuilder } from '@stellar/stellar-sdk';
+import {
+  Address, Asset, BASE_FEE, Contract, Horizon, Keypair, Networks, Operation, TransactionBuilder, nativeToScVal, rpc, xdr,
+} from '@stellar/stellar-sdk';
+import { TESTNET_SRT_ANCHOR } from '../src/config/anchors';
+import { Sep24AnchorClient } from '../src/services/anchorClient';
 
 const HORIZON = 'https://horizon-testnet.stellar.org';
+const SOROBAN_RPC = 'https://soroban-testnet.stellar.org';
 const FRIENDBOT = 'https://friendbot.stellar.org';
 const ENV_FILE = '.env';
 const server = new Horizon.Server(HORIZON);
@@ -64,7 +71,7 @@ async function fund(label: string, pub: string) {
   console.log(`  ✓ ${label} funded with 10,000 test XLM`);
 }
 
-async function submit(signer: Keypair, ops: ReturnType<typeof Operation.payment>[]): Promise<string> {
+async function submit(signer: Keypair, ops: xdr.Operation[]): Promise<string> {
   const account = await server.loadAccount(signer.publicKey());
   const builder = new TransactionBuilder(account, { fee: BASE_FEE, networkPassphrase: Networks.TESTNET }).setTimeout(60);
   ops.forEach((op) => builder.addOperation(op));
@@ -163,14 +170,107 @@ async function balances() {
   }
 }
 
-const [cmd, arg] = process.argv.slice(2);
-const commands: Record<string, (a?: string) => Promise<void>> = { setup, reward, balances };
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Get test SRT for the payer via a SEP-24 deposit at Stellar's reference
+ * anchor, then offer it for XLM so AutoFi has a DEX path XLM -> SRT.
+ */
+async function anchor(amountArg?: string) {
+  const env = readEnv();
+  if (!env.TESTNET_PAYER_SECRET) throw new Error('Run `npm run testnet:setup` first.');
+  const amount = amountArg ?? '500';
+  const payer = Keypair.fromSecret(env.TESTNET_PAYER_SECRET);
+  const srt = new Asset(TESTNET_SRT_ANCHOR.code, TESTNET_SRT_ANCHOR.issuer);
+
+  const srtBalance = async () => {
+    const acct = await server.loadAccount(payer.publicKey());
+    const b = acct.balances.find((x) => 'asset_code' in x && x.asset_code === srt.code && x.asset_issuer === srt.issuer);
+    return b ? b.balance : undefined;
+  };
+
+  console.log('1/3 Payer trustline to SRT');
+  if ((await srtBalance()) === undefined) {
+    await submit(payer, [Operation.changeTrust({ asset: srt })]);
+    console.log('  ✓ added');
+  } else console.log('  ✓ already there');
+
+  console.log(`2/3 Depositing ${amount} SRT through ${TESTNET_SRT_ANCHOR.homeDomain} (SEP-24)`);
+  const client = new Sep24AnchorClient(payer, Networks.TESTNET);
+  const dep = await client.startDeposit(TESTNET_SRT_ANCHOR, amount);
+  console.log(`\n  Open this link and complete the test anchor's form (test data only):\n  ${dep.url}\n\n  Waiting for the deposit to complete…`);
+  let last = '';
+  for (let i = 0; i < 180; i++) {
+    const tx = await client.getTransaction(TESTNET_SRT_ANCHOR, dep.id);
+    if (tx.status !== last) console.log(`  status: ${(last = tx.status)}`);
+    if (tx.status === 'completed') break;
+    if (['error', 'expired', 'refunded', 'no_market', 'too_small', 'too_large'].includes(tx.status)) {
+      throw new Error(`Deposit ended with status ${tx.status}${tx.message ? `: ${tx.message}` : ''}`);
+    }
+    await sleep(5000);
+  }
+  const bal = await srtBalance();
+  if (!bal || Number(bal) <= 0) throw new Error('Deposit did not arrive in time; run the command again once it completes.');
+
+  console.log(`3/3 Offering ${bal} SRT for XLM (1 SRT = 1 XLM)`);
+  await submit(payer, [Operation.manageSellOffer({ selling: srt, buying: Asset.native(), amount: bal, price: '1' })]);
+  console.log(`
+Done. AutoFi can now swap XLM -> SRT. To route rewards to the test anchor:
+  npm run testnet:prefs -- 60 SRT     (on-chain rule: 60% to SRT)
+  set SEP24_ENABLED=true in .env, restart npm run dev, then npm run testnet:reward -- 20`);
+}
+
+/** Store an off-ramp rule for the app wallet in the reward_router contract. */
+async function prefs(pctArg?: string, codeArg?: string) {
+  const env = readEnv();
+  const contractId = env.REWARD_ROUTER_CONTRACT_ID;
+  if (!env.DEV_PRIVATE_KEY || !contractId) throw new Error('Needs DEV_PRIVATE_KEY and REWARD_ROUTER_CONTRACT_ID in .env (deploy the contract first).');
+  const pct = Number(pctArg ?? '70');
+  if (!Number.isInteger(pct) || pct < 0 || pct > 100) throw new Error(`Percentage must be 0-100, got "${pctArg}"`);
+  const code = (codeArg ?? 'SRT').toUpperCase();
+  const issuer = code === 'SRT' ? TESTNET_SRT_ANCHOR.issuer : env[`${code}_ISSUER`];
+  if (!issuer) throw new Error(`No issuer known for ${code} (set ${code}_ISSUER in .env)`);
+
+  const wallet = Keypair.fromSecret(env.DEV_PRIVATE_KEY);
+  const field = (k: string, v: xdr.ScVal) => new xdr.ScMapEntry({ key: xdr.ScVal.scvSymbol(k), val: v });
+  // Struct fields must be in alphabetical order.
+  const value = xdr.ScVal.scvMap([
+    field('anchor_asset_code', nativeToScVal(code, { type: 'string' })),
+    field('anchor_issuer', new Address(issuer).toScVal()),
+    field('keep_crypto_pct', nativeToScVal(100 - pct, { type: 'u32' })),
+    field('off_ramp_pct', nativeToScVal(pct, { type: 'u32' })),
+  ]);
+
+  const soroban = new rpc.Server(env.SOROBAN_RPC_URL || SOROBAN_RPC);
+  const account = await soroban.getAccount(wallet.publicKey());
+  const tx = new TransactionBuilder(account, { fee: BASE_FEE, networkPassphrase: Networks.TESTNET })
+    .addOperation(new Contract(contractId).call('set_preferences', new Address(wallet.publicKey()).toScVal(), value))
+    .setTimeout(60)
+    .build();
+  const prepared = await soroban.prepareTransaction(tx);
+  prepared.sign(wallet);
+  const sent = await soroban.sendTransaction(prepared);
+  if (sent.status === 'ERROR') throw new Error(`set_preferences rejected: ${JSON.stringify(sent.errorResult)}`);
+  for (let i = 0; i < 30; i++) {
+    const res = await soroban.getTransaction(sent.hash);
+    if (res.status === rpc.Api.GetTransactionStatus.SUCCESS) {
+      console.log(`Stored on-chain: ${pct}% -> ${code}, keep ${100 - pct}%\n  https://stellar.expert/explorer/testnet/tx/${sent.hash}`);
+      return;
+    }
+    if (res.status === rpc.Api.GetTransactionStatus.FAILED) throw new Error('set_preferences failed on-chain');
+    await sleep(2000);
+  }
+  throw new Error('Timed out waiting for set_preferences to confirm');
+}
+
+const [cmd, arg, arg2] = process.argv.slice(2);
+const commands: Record<string, (a?: string, b?: string) => Promise<void>> = { setup, reward, balances, anchor, prefs };
 const run = commands[cmd ?? ''];
 if (!run) {
-  console.error('Usage: ts-node scripts/testnet.ts <setup|reward [amount]|balances>');
+  console.error('Usage: ts-node scripts/testnet.ts <setup | reward [amount] | balances | anchor [amount] | prefs <pct> <CODE>>');
   process.exit(1);
 }
-run(arg).catch((err) => {
+run(arg, arg2).catch((err) => {
   console.error(`✗ ${(err as Error).message}`);
   process.exit(1);
 });
