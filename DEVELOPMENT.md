@@ -25,6 +25,9 @@ Get a funded testnet key with `stellar keys generate dev --network testnet --fun
 | `npm run testnet:setup` | Create and fund testnet accounts, open a test NGNX market, write `.env` |
 | `npm run testnet:reward -- 25` | Send the app a 25 XLM test reward |
 | `npm run testnet:balances` | Show the app wallet's balances |
+| `npm run testnet:anchor` | Get test SRT from testanchor.stellar.org and offer it on the DEX |
+| `npm run testnet:prefs -- 60 SRT` | Store an off-ramp rule in the contract |
+| `npm run web:dev` | Run the web app locally |
 | `npm run check` | typecheck + test + build + contract:test (what CI runs) |
 
 ## Contract toolchain
