@@ -1,0 +1,19 @@
+{
+  "name": "autofi-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@stellar/freighter-api": "6.0.1",
+    "@stellar/stellar-sdk": "17.2.1"
+  },
+  "devDependencies": {
+    "typescript": "5.4.5",
+    "vite": "8.3.1"
+  }
+}

@@ -1,0 +1,104 @@
+:root {
+  --bg: #f6f7fb;
+  --card: #ffffff;
+  --text: #14161c;
+  --muted: #5d6475;
+  --line: #e3e6ee;
+  --accent: #4f46e5;
+  --accent-text: #ffffff;
+  --ok: #157f3b;
+  --warn: #9a6200;
+  --err: #b42318;
+  --ok-bg: #e7f6ec;
+  --warn-bg: #fff4dc;
+  --err-bg: #fdecea;
+  --radius: 14px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1117;
+    --card: #171a22;
+    --text: #e8eaf0;
+    --muted: #9aa1b2;
+    --line: #2a2f3b;
+    --accent: #8b85ff;
+    --accent-text: #0f1117;
+    --ok: #5fd38a;
+    --warn: #f0b84d;
+    --err: #ff8a80;
+    --ok-bg: #12301f;
+    --warn-bg: #33270d;
+    --err-bg: #3a1513;
+    color-scheme: dark;
+  }
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.5 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+  background: var(--card);
+  position: sticky;
+  top: 0;
+}
+.brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 18px; }
+.logo { color: var(--accent); }
+.pill { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--warn-bg); color: var(--warn); }
+.container { max-width: 760px; margin: 0 auto; padding: 20px 16px 48px; display: grid; gap: 16px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; }
+.card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+h2 { margin: 0; font-size: 17px; }
+.hint { color: var(--muted); margin: 8px 0 14px; }
+.badge { font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
+.badge.muted { background: var(--line); color: var(--muted); }
+.badge.ok { background: var(--ok-bg); color: var(--ok); }
+.badge.warn { background: var(--warn-bg); color: var(--warn); }
+.badge.err { background: var(--err-bg); color: var(--err); }
+
+.btn { border: 1px solid transparent; border-radius: 10px; padding: 9px 14px; font: inherit; font-weight: 600; cursor: pointer; }
+.btn.primary { background: var(--accent); color: var(--accent-text); }
+.btn.ghost { background: transparent; color: var(--text); border-color: var(--line); }
+.btn:disabled { opacity: 0.55; cursor: progress; }
+.actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 4px; }
+
+.form { display: grid; gap: 8px; }
+.form label { font-weight: 600; font-size: 14px; margin-top: 6px; }
+.form input[type='text'], .form input[type='url'], .form input[type='password'], .form select {
+  width: 100%; padding: 9px 11px; border-radius: 10px; border: 1px solid var(--line);
+  background: var(--bg); color: var(--text); font: inherit;
+}
+.form input[type='range'] { width: 100%; accent-color: var(--accent); }
+
+.rule { margin-bottom: 14px; }
+.split-bar { height: 12px; border-radius: 999px; background: var(--line); overflow: hidden; }
+.split-bar span { display: block; height: 100%; background: var(--accent); width: 0; transition: width 0.3s; }
+.split-legend { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 8px; color: var(--muted); }
+.split-legend b { color: var(--text); }
+
+.notice { padding: 11px 14px; border-radius: 10px; font-weight: 500; overflow-wrap: anywhere; }
+.notice.ok { background: var(--ok-bg); color: var(--ok); }
+.notice.err { background: var(--err-bg); color: var(--err); }
+.notice a { color: inherit; }
+
+.rewards { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 10px; }
+.rewards li { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; display: grid; gap: 4px; }
+.rewards .row { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; align-items: center; }
+.rewards .amount { font-weight: 700; }
+.rewards .meta { color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+.rewards a { color: var(--accent); }
+.empty { color: var(--muted); }
+
+.settings summary { cursor: pointer; font-weight: 700; }
+.settings[open] summary { margin-bottom: 8px; }
