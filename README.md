@@ -38,6 +38,7 @@ src/
   server/                  HTTP server and GitHub webhook parsing
   utils/                   amount math, validation, logging, metrics, retry
   __tests__/               Jest test suites
+web/                       browser app: connect wallet, set split rule, view payouts
 scripts/testnet.ts         testnet kit: set up a test wallet and send it rewards
 ```
 
@@ -70,9 +71,36 @@ npm run testnet:balances       # ~17.5 XLM swapped to NGNX, the rest kept as XLM
 curl localhost:8080/rewards    # the reward's full history
 ```
 
-What happens: AutoFi sees the payment, reads the split (70% off-ramp by default), swaps that share into NGNX on the testnet DEX with slippage protection, and records the result. The test NGNX has no real anchor, so the kit turns off the SEP-24 bank step (`SEP24_ENABLED=false`). To try the bank step, set `DEFAULT_ANCHOR=SRT` and `SEP24_ENABLED=true` to use Stellar's reference test anchor. It needs an XLM/SRT route on the testnet DEX.
+What happens: AutoFi sees the payment, reads the split (70% off-ramp by default), swaps that share into NGNX on the testnet DEX with slippage protection, and records the result.
+
+### Test the full cash-out with Stellar's test anchor
+
+The kit can also run the bank step end to end against `testanchor.stellar.org` (SEP-10 + SEP-24):
+
+```bash
+npm run testnet:anchor          # get 10 test SRT via the anchor (opens a test form) and offer it on the DEX
+npm run testnet:prefs -- 60 SRT # with REWARD_ROUTER_CONTRACT_ID set: store "60% to SRT" on-chain
+# set SEP24_ENABLED=true in .env, then restart: npm run dev
+npm run testnet:reward -- 50    # 30 XLM is swapped to SRT and a withdrawal is opened
+```
+
+Open the link AutoFi logs (or the **Finish cash-out** link in the web app), complete the test anchor's form, and AutoFi sends the SRT and marks the payout `completed`. The test anchor accepts 1–10 SRT per transaction.
 
 Add `ALERT_WEBHOOK_URL` (a Slack or Discord webhook) to get a message for every payout or failure.
+
+## Web app
+
+`web/` is a small browser app for developers:
+
+- **Connect** the Freighter wallet (testnet).
+- **Set your split rule:** off-ramp share and cash-out anchor, signed by your wallet and stored in the `reward_router` contract.
+- **See payouts** from your AutoFi server, with status, explorer links and a **Finish cash-out** link when the anchor is waiting on you.
+
+```bash
+cd web && npm ci && npm run dev     # or from the root: npm run web:dev
+```
+
+It's published to GitHub Pages by `.github/workflows/pages.yml` on every push to `main` that touches `web/`. To let the hosted app read your server's payouts, set `CORS_ORIGIN=https://stellarflow-lab.github.io` (and `ADMIN_TOKEN`, entered in the app's Settings). Defaults for the contract, RPC and server URL are in `web/.env.example`.
 
 ## Deploy with Docker
 
@@ -141,7 +169,7 @@ See [DEVELOPMENT.md](DEVELOPMENT.md) for more.
 - [x] Signed GitHub bounty webhook
 - [ ] Drips subgraph lookup to attribute payouts to specific streams
 - [ ] Multi-account support from one instance
-- [ ] Web UI for setting `RoutePreferences` and viewing history
+- [x] Web UI for setting `RoutePreferences` and viewing history
 
 ## License
 

@@ -22,6 +22,7 @@ describe('CORS', () => {
       expect(pre.status).toBe(204);
       expect(pre.headers.get('access-control-allow-origin')).toBe('https://app.example');
       expect(pre.headers.get('access-control-allow-headers')).toContain('Authorization');
+      expect(pre.headers.get('access-control-allow-private-network')).toBe('true');
 
       const res = await fetch(`${base}/health`);
       expect(res.headers.get('access-control-allow-origin')).toBe('https://app.example');

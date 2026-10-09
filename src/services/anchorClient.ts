@@ -146,6 +146,23 @@ export class Sep24AnchorClient implements AnchorClient {
     );
   }
 
+  /** SEP-24 interactive deposit (used by the testnet kit to obtain test assets). */
+  async startDeposit(anchor: AnchorConfig, amount: string): Promise<InteractiveWithdrawal> {
+    const info = await this.discover(anchor.homeDomain);
+    const token = await this.authenticate(anchor.homeDomain);
+    return http<{ type: string; url: string; id: string }>(`${info.transferServer}/transactions/deposit/interactive`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        asset_code: anchor.code,
+        asset_issuer: anchor.issuer,
+        amount,
+        account: this.keypair.publicKey(),
+        lang: 'en',
+      }),
+    });
+  }
+
   async getTransaction(anchor: AnchorConfig, id: string): Promise<Sep24Transaction> {
     const info = await this.discover(anchor.homeDomain);
     const token = await this.authenticate(anchor.homeDomain);

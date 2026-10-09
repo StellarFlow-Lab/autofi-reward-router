@@ -115,6 +115,8 @@ export function createHttpServer(deps: ServerDeps): http.Server {
       res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
       res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
       res.setHeader('Vary', 'Origin');
+      // Lets a public web app reach an AutoFi server on localhost (Chrome Private Network Access).
+      res.setHeader('Access-Control-Allow-Private-Network', 'true');
       if (req.method === 'OPTIONS') {
         res.writeHead(204);
         res.end();

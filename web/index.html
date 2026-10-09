@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AutoFi Wallet</title>
+    <meta name="description" content="Route your developer rewards to your bank automatically." />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="logo" aria-hidden="true">◆</span>
+        <span>AutoFi</span>
+        <span class="pill">Testnet</span>
+      </div>
+      <button id="connect" class="btn primary">Connect Freighter</button>
+    </header>
+
+    <main class="container">
+      <div id="notice" class="notice" role="status" hidden></div>
+
+      <section class="card">
+        <div class="card-head">
+          <h2>Your split rule</h2>
+          <span id="rule-badge" class="badge muted">Not connected</span>
+        </div>
+        <p class="hint">
+          When a reward lands in your wallet, AutoFi off-ramps this share to your bank through the anchor you choose and
+          keeps the rest as crypto. The rule lives in the reward_router contract — only your wallet can change it.
+        </p>
+
+        <div id="rule-current" class="rule" hidden>
+          <div class="split-bar" aria-hidden="true"><span id="bar-off"></span></div>
+          <div class="split-legend">
+            <span><b id="cur-off">0%</b> off-ramp to <b id="cur-asset">—</b></span>
+            <span><b id="cur-keep">0%</b> kept as crypto</span>
+          </div>
+        </div>
+
+        <form id="rule-form" class="form" hidden>
+          <label for="pct">Off-ramp share: <b id="pct-label">60%</b></label>
+          <input id="pct" type="range" min="0" max="100" step="5" value="60" />
+
+          <label for="anchor">Cash out through</label>
+          <select id="anchor"></select>
+
+          <div id="issuer-row" hidden>
+            <label for="issuer">Issuer address</label>
+            <input id="issuer" type="text" placeholder="G…" spellcheck="false" autocomplete="off" />
+          </div>
+
+          <div class="actions">
+            <button id="save" type="submit" class="btn primary">Save to contract</button>
+            <button id="remove" type="button" class="btn ghost" hidden>Remove rule</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="card">
+        <div class="card-head">
+          <h2>Payouts</h2>
+          <span id="server-badge" class="badge muted">Server not checked</span>
+        </div>
+        <p class="hint">Rewards your AutoFi server has processed. Payouts waiting on you have a link to finish the cash-out.</p>
+        <div class="actions"><button id="refresh" class="btn ghost">Refresh</button></div>
+        <ul id="rewards" class="rewards"></ul>
+      </section>
+
+      <details class="card settings">
+        <summary>Settings</summary>
+        <form id="settings" class="form">
+          <label for="s-contract">Contract ID</label>
+          <input id="s-contract" type="text" spellcheck="false" autocomplete="off" />
+          <label for="s-rpc">Soroban RPC URL</label>
+          <input id="s-rpc" type="url" spellcheck="false" />
+          <label for="s-api">AutoFi server URL</label>
+          <input id="s-api" type="url" spellcheck="false" placeholder="http://localhost:8080" />
+          <label for="s-token">Admin token (kept in this browser only)</label>
+          <input id="s-token" type="password" autocomplete="off" />
+          <div class="actions"><button class="btn primary" type="submit">Save settings</button></div>
+        </form>
+      </details>
+    </main>
+
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>
