@@ -24,7 +24,9 @@
     "testnet:reward": "ts-node scripts/testnet.ts reward",
     "testnet:balances": "ts-node scripts/testnet.ts balances",
     "testnet:anchor": "ts-node scripts/testnet.ts anchor",
-    "testnet:prefs": "ts-node scripts/testnet.ts prefs"
+    "testnet:prefs": "ts-node scripts/testnet.ts prefs",
+    "web:dev": "npm --prefix web run dev",
+    "web:build": "npm --prefix web run build"
   },
   "dependencies": {
     "@stellar/stellar-sdk": "17.2.1"
