@@ -117,4 +117,22 @@ mod test {
         client.remove_preferences(&user);
         assert!(!client.has_preferences(&user));
     }
+
+    #[test]
+    #[should_panic(expected = "allocations must sum to 100")]
+    fn test_overflowing_split_panics() {
+        let env = Env::default();
+        let contract_id = env.register(RewardRouter, ());
+        let client = RewardRouterClient::new(&env, &contract_id);
+        env.mock_all_auths();
+        client.set_preferences(
+            &Address::generate(&env),
+            &RoutePreferences {
+                off_ramp_pct: u32::MAX,
+                keep_crypto_pct: 101, // wraps to 100 without checked_add
+                anchor_asset_code: String::from_str(&env, "NGNX"),
+                anchor_issuer: Address::generate(&env),
+            },
+        );
+    }
 }
