@@ -192,6 +192,15 @@ export function loadConfig(env: Env = process.env): AppConfig {
   const rateLimitCapacity = num('LISTENER_RATE_LIMIT_CAPACITY', 5, (n) => n >= 1, '>= 1');
   const rateLimitRefillPerSec = num('LISTENER_RATE_LIMIT_REFILL', 0.5, (n) => n > 0, '> 0');
 
+  // --- Admin API ---
+  const adminToken = env.ADMIN_TOKEN?.trim() || undefined;
+  if (adminToken && adminToken.length < 24) {
+    problems.push('ADMIN_TOKEN must be at least 24 characters (try: openssl rand -hex 24)');
+  }
+  if (!adminToken && network === 'mainnet') {
+    problems.push('ADMIN_TOKEN is required on mainnet — without it GET /rewards and POST /rewards/:id/withdraw are open to anyone');
+  }
+
   // --- CORS ---
   const corsOrigin = env.CORS_ORIGIN?.trim() || undefined;
   if (corsOrigin && !isOrigin(corsOrigin)) {
@@ -227,7 +236,7 @@ export function loadConfig(env: Env = process.env): AppConfig {
     sep24TimeoutMs,
     httpPort,
     githubWebhookSecret: env.GITHUB_WEBHOOK_SECRET?.trim() || undefined,
-    adminToken: env.ADMIN_TOKEN?.trim() || undefined,
+    adminToken,
     corsOrigin,
     rateLimitCapacity,
     rateLimitRefillPerSec,
