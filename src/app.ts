@@ -3,7 +3,7 @@ import { loadConfig, type AppConfig } from './config/env';
 import { createRewardProcessor, openWithdrawal } from './core/rewardProcessor';
 import { startWithdrawalMonitor } from './core/withdrawalMonitor';
 import { Sep24AnchorClient } from './services/anchorClient';
-import { startPaymentListener } from './services/paymentListener';
+import { listenerHealth, startPaymentListener, type ListenerStatus } from './services/paymentListener';
 import { RateLimiter } from './services/rateLimiter';
 import { FallbackPreferencesProvider, SorobanPreferencesClient } from './services/sorobanClient';
 import { StateStore } from './services/stateStore';
@@ -53,11 +53,17 @@ export async function startApp(config: AppConfig = loadConfig()): Promise<Runnin
     dryRun: config.dryRun,
   });
 
+  // Filled in once the listener starts; /health reports 503 if Horizon goes quiet.
+  let listenerStatus: (() => ListenerStatus) | undefined;
+  const startedAt = Date.now();
+  const HEALTH_STALE_MS = 2 * 60 * 1000;
+
   const server: http.Server = createHttpServer({
     store,
     metrics: metricsCollector,
     githubWebhookSecret: config.githubWebhookSecret,
     adminToken: config.adminToken,
+    health: () => listenerHealth(listenerStatus?.() ?? {}, startedAt, Date.now(), HEALTH_STALE_MS),
     corsOrigin: config.corsOrigin,
     info: { network: config.network, account: config.publicKey, dryRun: config.dryRun, anchors: Object.keys(config.anchors) },
     onBounty: (b) =>
@@ -95,6 +101,7 @@ export async function startApp(config: AppConfig = loadConfig()): Promise<Runnin
       await processReward(e);
     },
   });
+  listenerStatus = listener.status;
 
   const monitor = anchorClient
     ? startWithdrawalMonitor({

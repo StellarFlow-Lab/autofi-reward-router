@@ -1,5 +1,5 @@
 import { Keypair, type Horizon } from '@stellar/stellar-sdk';
-import { classifyPayment, type RewardFilter } from '../services/paymentListener';
+import { classifyPayment, type RewardFilter, listenerHealth } from '../services/paymentListener';
 import { ANCHORS, DEV, NGNX_ISSUER, SENDER, USDC_TESTNET } from './helpers';
 
 const filter: RewardFilter = {
@@ -51,5 +51,23 @@ describe('classifyPayment', () => {
   test('requireKnownSender rejects strangers', () => {
     const r = classifyPayment(op({ from: Keypair.random().publicKey() }), { ...filter, requireKnownSender: true });
     expect('skip' in r && r.skip).toMatch(/not a known payout address/);
+  });
+});
+
+describe('listenerHealth', () => {
+  const STALE = 120_000;
+  const t0 = Date.parse('2026-01-01T00:00:00Z');
+
+  test('healthy during start-up grace, unhealthy if Horizon never answers', () => {
+    expect(listenerHealth({}, t0, t0 + 60_000, STALE).ok).toBe(true);
+    const h = listenerHealth({ lastError: 'Forbidden' }, t0, t0 + 180_000, STALE);
+    expect(h.ok).toBe(false);
+    expect(h.horizon.lastError).toBe('Forbidden');
+  });
+
+  test('tracks the last successful poll', () => {
+    const recent = { lastSuccessAt: new Date(t0 + 500_000).toISOString() };
+    expect(listenerHealth(recent, t0, t0 + 560_000, STALE).ok).toBe(true);
+    expect(listenerHealth(recent, t0, t0 + 700_000, STALE).ok).toBe(false);
   });
 });

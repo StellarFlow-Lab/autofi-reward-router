@@ -79,7 +79,7 @@ The contract emits `PreferencesSet` and `PreferencesRemoved` events, and extends
 
 | Route | Auth | Description |
 |---|---|---|
-| `GET /health` | — | Status, network, account, enabled anchors |
+| `GET /health` | — | Status, network, account, anchors; **503** if Horizon hasn't been reached for 2 min |
 | `GET /metrics` | — | Counters and processing times |
 | `GET /rewards?status=&limit=` | admin | Processed reward records |
 | `POST /rewards/:id/withdraw` | admin | Retry opening a SEP-24 withdrawal |
