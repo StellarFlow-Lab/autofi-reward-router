@@ -87,9 +87,16 @@ export interface ListenerDeps {
  * manual transfers all arrive as on-chain payments. Configure
  * DRIPS_SENDERS / BOUNTY_SENDERS to label (or restrict) where they come from.
  */
-export function startPaymentListener(deps: ListenerDeps): { stop: () => Promise<void> } {
+export interface ListenerStatus {
+  /** ISO time of the last successful Horizon poll, if any. */
+  lastSuccessAt?: string;
+  lastError?: string;
+}
+
+export function startPaymentListener(deps: ListenerDeps): { stop: () => Promise<void>; status: () => ListenerStatus } {
   const { server, filter, onReward, pollIntervalMs = 5000 } = deps;
   let running = true;
+  const state: ListenerStatus = {};
 
   const initCursor = async (): Promise<string> => {
     const saved = deps.getCursor();
@@ -124,8 +131,11 @@ export function startPaymentListener(deps: ListenerDeps): { stop: () => Promise<
           deps.setCursor(cursor);
         }
 
+        state.lastSuccessAt = new Date().toISOString();
+        state.lastError = undefined;
         if (page.records.length === 50) continue; // more to drain
       } catch (err) {
+        state.lastError = errorMessage(err);
         const status = (err as { response?: { status?: number } }).response?.status;
         if (status === 404) {
           log.warn(`Account ${filter.publicKey} not found on this network yet — fund it to start receiving rewards`);
@@ -139,9 +149,20 @@ export function startPaymentListener(deps: ListenerDeps): { stop: () => Promise<
 
   const done = loop();
   return {
+    status: () => ({ ...state }),
     stop: async () => {
       running = false;
       await done;
     },
   };
+}
+
+/**
+ * Healthy if Horizon answered within `staleMs`. Before the first success we
+ * allow a start-up grace period of the same length.
+ */
+export function listenerHealth(status: ListenerStatus, startedAt: number, now: number, staleMs: number) {
+  const last = status.lastSuccessAt ? Date.parse(status.lastSuccessAt) : undefined;
+  const ok = last !== undefined ? now - last <= staleMs : now - startedAt <= staleMs;
+  return { ok, horizon: { lastSuccessAt: status.lastSuccessAt ?? null, lastError: status.lastError ?? null } };
 }

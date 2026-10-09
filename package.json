@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "private": true,
   "engines": {
-    "node": ">=20.12"
+    "node": ">=22.12"
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
@@ -19,10 +19,13 @@
     "lint": "tsc --noEmit",
     "contract:build": "cd contracts/reward_router && stellar contract build",
     "contract:test": "cd contracts/reward_router && cargo test",
-    "check": "npm run typecheck && npm test && npm run build && npm run contract:test"
+    "check": "npm run typecheck && npm test && npm run build && npm run contract:test",
+    "testnet:setup": "ts-node scripts/testnet.ts setup",
+    "testnet:reward": "ts-node scripts/testnet.ts reward",
+    "testnet:balances": "ts-node scripts/testnet.ts balances"
   },
   "dependencies": {
-    "@stellar/stellar-sdk": "12.3.0"
+    "@stellar/stellar-sdk": "17.2.1"
   },
   "devDependencies": {
     "@types/jest": "^29.5.12",
@@ -33,7 +36,6 @@
     "typescript": "5.4.5"
   },
   "jest": {
-    "preset": "ts-jest",
     "testEnvironment": "node",
     "roots": [
       "<rootDir>/src"
@@ -45,6 +47,19 @@
       "src/**/*.ts",
       "!src/**/__tests__/**",
       "!src/index.ts"
+    ],
+    "transform": {
+      "^.+\\.[tj]s$": [
+        "ts-jest",
+        {
+          "tsconfig": {
+            "allowJs": true
+          }
+        }
+      ]
+    },
+    "transformIgnorePatterns": [
+      "/node_modules/(?!(uint8array-extras|is-retry-allowed|@exodus/bytes|@noble/ed25519|@noble/hashes)/)"
     ]
   }
 }

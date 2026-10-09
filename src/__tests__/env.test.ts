@@ -28,8 +28,23 @@ describe('loadConfig', () => {
     }
   });
 
+  test('ALERT_WEBHOOK_URL must be an http(s) URL', () => {
+    const base = { DEV_PRIVATE_KEY: secret, DEFAULT_ANCHOR: 'SRT' };
+    expect(loadConfig({ ...base, ALERT_WEBHOOK_URL: 'https://hooks.slack.com/services/x' }).alertWebhookUrl).toBe('https://hooks.slack.com/services/x');
+    expect(() => loadConfig({ ...base, ALERT_WEBHOOK_URL: 'not a url' })).toThrow(/ALERT_WEBHOOK_URL/);
+  });
+
+  test('mainnet requires a strong ADMIN_TOKEN', () => {
+    const base = { STELLAR_NETWORK: 'mainnet', DEV_PRIVATE_KEY: secret, DEFAULT_ANCHOR: 'USDC' };
+    expect(() => loadConfig(base)).toThrow(/ADMIN_TOKEN is required on mainnet/);
+    expect(() => loadConfig({ ...base, ADMIN_TOKEN: 'short' })).toThrow(/at least 24 characters/);
+    expect(loadConfig({ ...base, ADMIN_TOKEN: 'a'.repeat(24) }).adminToken).toBe('a'.repeat(24));
+    // testnet still runs without one, for local development
+    expect(loadConfig({ DEV_PRIVATE_KEY: secret, DEFAULT_ANCHOR: 'SRT' }).adminToken).toBeUndefined();
+  });
+
   test('mainnet uses mainnet USDC and has no SRT', () => {
-    const c = loadConfig({ STELLAR_NETWORK: 'mainnet', DEV_PRIVATE_KEY: secret, DEFAULT_ANCHOR: 'USDC' });
+    const c = loadConfig({ STELLAR_NETWORK: 'mainnet', DEV_PRIVATE_KEY: secret, DEFAULT_ANCHOR: 'USDC', ADMIN_TOKEN: 'x'.repeat(24) });
     expect(c.anchors.USDC.issuer).toBe(USDC_ISSUER.mainnet);
     expect(c.anchors.SRT).toBeUndefined();
   });
@@ -64,7 +79,7 @@ describe('loadConfig', () => {
   test('contract on mainnet needs an explicit RPC url', () => {
     expect(() => loadConfig({ STELLAR_NETWORK: 'mainnet', DEV_PRIVATE_KEY: secret, REWARD_ROUTER_CONTRACT_ID: contract }))
       .toThrow(/SOROBAN_RPC_URL/);
-    const c = loadConfig({ STELLAR_NETWORK: 'mainnet', DEV_PRIVATE_KEY: secret, REWARD_ROUTER_CONTRACT_ID: contract, SOROBAN_RPC_URL: 'https://rpc.example' });
+    const c = loadConfig({ STELLAR_NETWORK: 'mainnet', DEV_PRIVATE_KEY: secret, REWARD_ROUTER_CONTRACT_ID: contract, SOROBAN_RPC_URL: 'https://rpc.example', ADMIN_TOKEN: 'a'.repeat(24) });
     expect(c.contractId).toBe(contract);
   });
 

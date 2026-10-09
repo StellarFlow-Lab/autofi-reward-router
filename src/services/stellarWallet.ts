@@ -184,7 +184,7 @@ export class StellarWallet implements Wallet {
     if (memo) builder.addMemo(memo);
     const tx = builder.build();
     tx.sign(this.opts.keypair);
-    const hash = tx.hash().toString('hex');
+    const hash = Buffer.from(tx.hash()).toString('hex');
 
     return retryAsync(
       async () => {

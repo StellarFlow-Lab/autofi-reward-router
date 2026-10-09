@@ -1,5 +1,15 @@
 {
   "extends": "./tsconfig.json",
-  "compilerOptions": { "types": ["node"] },
-  "exclude": ["src/**/__tests__/**"]
+  "compilerOptions": {
+    "types": [
+      "node"
+    ],
+    "rootDir": "src"
+  },
+  "exclude": [
+    "src/**/__tests__/**"
+  ],
+  "include": [
+    "src/**/*"
+  ]
 }

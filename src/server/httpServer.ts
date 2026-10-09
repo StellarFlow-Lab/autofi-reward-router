@@ -14,6 +14,8 @@ export interface ServerDeps {
   store: StateStore;
   metrics: MetricsCollector;
   info: Record<string, unknown>;
+  /** Readiness probe merged into GET /health; `ok: false` returns HTTP 503. */
+  health?: () => { ok: boolean } & Record<string, unknown>;
   githubWebhookSecret?: string;
   adminToken?: string;
   /** e.g. https://stellarflow-lab.github.io — enables CORS for the web app. */
@@ -52,7 +54,7 @@ function safeEqual(a: string, b: string) {
 
 /**
  * Small dependency-free HTTP API:
- *   GET  /health                   liveness + basic info
+ *   GET  /health                   503 if Horizon hasn't been reached recently
  *   GET  /metrics                  counters
  *   GET  /rewards?status=&limit=   processed rewards           (admin)
  *   POST /rewards/:id/withdraw     retry opening a withdrawal  (admin)
@@ -69,7 +71,11 @@ export function createHttpServer(deps: ServerDeps): http.Server {
     const url = new URL(req.url ?? '/', 'http://localhost');
     const route = `${req.method} ${url.pathname}`;
 
-    if (route === 'GET /health') return [200, { status: 'ok', ...deps.info }];
+    if (route === 'GET /health') {
+      const h = deps.health?.() ?? { ok: true };
+      const { ok, ...details } = h;
+      return [ok ? 200 : 503, { status: ok ? 'ok' : 'degraded', ...deps.info, ...details }];
+    }
     if (route === 'GET /metrics') return [200, deps.metrics.getMetrics()];
 
     if (route === 'GET /rewards') {

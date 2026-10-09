@@ -22,6 +22,9 @@ Get a funded testnet key with `stellar keys generate dev --network testnet --fun
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run contract:test` | `cargo test` for the Soroban contract |
 | `npm run contract:build` | Build the contract wasm with the stellar CLI |
+| `npm run testnet:setup` | Create and fund testnet accounts, open a test NGNX market, write `.env` |
+| `npm run testnet:reward -- 25` | Send the app a 25 XLM test reward |
+| `npm run testnet:balances` | Show the app wallet's balances |
 | `npm run check` | typecheck + test + build + contract:test (what CI runs) |
 
 ## Contract toolchain

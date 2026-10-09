@@ -14,6 +14,9 @@ interface PersistedState {
 
 const MAX_RECORDS = 5000;
 
+/** Called after a record's status changes (or a new record is created). */
+export type TransitionListener = (record: RewardRecord, previous: RewardRecord['status'] | undefined) => void;
+
 /**
  * Durable state for the router: the stream cursor (so restarts don't miss or
  * replay payments) and one record per processed reward (idempotency + history).
@@ -22,6 +25,7 @@ const MAX_RECORDS = 5000;
 export class StateStore {
   private state: PersistedState = { version: 1, records: [] };
   private index = new Map<string, RewardRecord>();
+  private listeners: TransitionListener[] = [];
 
   constructor(private readonly filePath: string | null) {
     this.load();
@@ -58,6 +62,11 @@ export class StateStore {
     fs.renameSync(tmp, this.filePath);
   }
 
+  /** Subscribe to status changes, e.g. to send alerts. Listener errors are logged, never thrown. */
+  onTransition(listener: TransitionListener) {
+    this.listeners.push(listener);
+  }
+
   getCursor(): string | undefined {
     return this.state.cursor;
   }
@@ -78,6 +87,7 @@ export class StateStore {
   upsert(record: Omit<RewardRecord, 'createdAt' | 'updatedAt'> & Partial<Pick<RewardRecord, 'createdAt'>>): RewardRecord {
     const now = new Date().toISOString();
     const existing = this.index.get(record.eventId);
+    const previous = existing?.status;
     const full: RewardRecord = { ...existing, ...record, createdAt: existing?.createdAt ?? record.createdAt ?? now, updatedAt: now };
     if (existing) {
       Object.assign(existing, full);
@@ -90,7 +100,17 @@ export class StateStore {
       }
     }
     this.save();
-    return this.index.get(record.eventId)!;
+    const saved = this.index.get(record.eventId)!;
+    if (saved.status !== previous) {
+      for (const listener of this.listeners) {
+        try {
+          listener({ ...saved }, previous);
+        } catch (err) {
+          log.warn('Transition listener failed', errorMessage(err));
+        }
+      }
+    }
+    return saved;
   }
 
   list(filter: { developer?: string; status?: RewardRecord['status']; limit?: number } = {}): RewardRecord[] {

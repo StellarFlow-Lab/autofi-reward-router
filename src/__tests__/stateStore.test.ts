@@ -45,3 +45,26 @@ describe('StateStore', () => {
     expect(fs.readdirSync(dir).some((f) => f.includes('corrupt'))).toBe(true);
   });
 });
+
+describe('StateStore transitions', () => {
+  const base = { eventId: 't1', rewardTxHash: 'h', developerPublicKey: 'G', source: 'drips' as const, receivedAmount: '5', receivedAsset: 'USDC', dryRun: false };
+
+  test('notifies listeners only when the status changes', () => {
+    const store = StateStore.inMemory();
+    const seen: Array<[string, string | undefined]> = [];
+    store.onTransition((r, prev) => seen.push([r.status, prev]));
+
+    store.upsert({ ...base, status: 'processing' });
+    store.upsert({ ...base, status: 'processing', offRampAmount: '3' }); // same status: no event
+    store.upsert({ ...base, status: 'swapped' });
+
+    expect(seen).toEqual([['processing', undefined], ['swapped', 'processing']]);
+  });
+
+  test('a throwing listener does not break the write', () => {
+    const store = StateStore.inMemory();
+    store.onTransition(() => { throw new Error('boom'); });
+    expect(store.upsert({ ...base, status: 'failed' }).status).toBe('failed');
+    expect(store.get('t1')?.status).toBe('failed');
+  });
+});

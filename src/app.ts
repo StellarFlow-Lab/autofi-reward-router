@@ -3,10 +3,11 @@ import { loadConfig, type AppConfig } from './config/env';
 import { createRewardProcessor, openWithdrawal } from './core/rewardProcessor';
 import { startWithdrawalMonitor } from './core/withdrawalMonitor';
 import { Sep24AnchorClient } from './services/anchorClient';
-import { startPaymentListener } from './services/paymentListener';
+import { listenerHealth, startPaymentListener, type ListenerStatus } from './services/paymentListener';
 import { RateLimiter } from './services/rateLimiter';
 import { FallbackPreferencesProvider, SorobanPreferencesClient } from './services/sorobanClient';
 import { StateStore } from './services/stateStore';
+import { createAlerter } from './services/alerter';
 import { StellarWallet } from './services/stellarWallet';
 import { createHttpServer, HttpError, listen } from './server/httpServer';
 import { logger } from './utils/logger';
@@ -24,6 +25,9 @@ export async function startApp(config: AppConfig = loadConfig()): Promise<Runnin
   const log = logger.child('app');
 
   const store = new StateStore(config.stateFile);
+  if (config.alertWebhookUrl) {
+    store.onTransition(createAlerter({ url: config.alertWebhookUrl, network: config.network }));
+  }
   const wallet = new StellarWallet({
     horizonUrl: config.horizonUrl,
     networkPassphrase: config.networkPassphrase,
@@ -49,11 +53,17 @@ export async function startApp(config: AppConfig = loadConfig()): Promise<Runnin
     dryRun: config.dryRun,
   });
 
+  // Filled in once the listener starts; /health reports 503 if Horizon goes quiet.
+  let listenerStatus: (() => ListenerStatus) | undefined;
+  const startedAt = Date.now();
+  const HEALTH_STALE_MS = 2 * 60 * 1000;
+
   const server: http.Server = createHttpServer({
     store,
     metrics: metricsCollector,
     githubWebhookSecret: config.githubWebhookSecret,
     adminToken: config.adminToken,
+    health: () => listenerHealth(listenerStatus?.() ?? {}, startedAt, Date.now(), HEALTH_STALE_MS),
     corsOrigin: config.corsOrigin,
     info: { network: config.network, account: config.publicKey, dryRun: config.dryRun, anchors: Object.keys(config.anchors) },
     onBounty: (b) =>
@@ -91,6 +101,7 @@ export async function startApp(config: AppConfig = loadConfig()): Promise<Runnin
       await processReward(e);
     },
   });
+  listenerStatus = listener.status;
 
   const monitor = anchorClient
     ? startWithdrawalMonitor({
@@ -107,7 +118,7 @@ export async function startApp(config: AppConfig = loadConfig()): Promise<Runnin
 
   log.info(
     `AutoFi running on ${config.network}${config.dryRun ? ' (DRY RUN — nothing will be submitted)' : ''} | account ${config.publicKey} | ` +
-      `anchors ${Object.keys(config.anchors).join(', ')} | prefs ${config.contractId ? `contract ${config.contractId}` : 'defaults'} | http :${port}`,
+      `anchors ${Object.keys(config.anchors).join(', ')} | alerts ${config.alertWebhookUrl ? 'on' : 'off'} | prefs ${config.contractId ? `contract ${config.contractId}` : 'defaults'} | http :${port}`,
   );
 
   return {

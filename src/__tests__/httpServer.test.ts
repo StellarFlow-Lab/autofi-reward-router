@@ -52,3 +52,20 @@ describe('HTTP API', () => {
     expect(res.status).toBe(400);
   });
 });
+
+describe('GET /health readiness', () => {
+  test('returns 503 with details when the probe reports a problem', async () => {
+    const s = createHttpServer({
+      store: StateStore.inMemory(), metrics: new MetricsCollector(), info: { network: 'testnet' },
+      health: () => ({ ok: false, horizon: { lastError: 'Forbidden' } }),
+    });
+    const url = `http://127.0.0.1:${await listen(s, 0)}/health`;
+    try {
+      const res = await fetch(url);
+      expect(res.status).toBe(503);
+      expect(await res.json()).toEqual({ status: 'degraded', network: 'testnet', horizon: { lastError: 'Forbidden' } });
+    } finally {
+      await new Promise((r) => s.close(r));
+    }
+  });
+});

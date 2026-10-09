@@ -1,0 +1,11 @@
+node_modules
+dist
+coverage
+.git
+.github
+.env
+.env.*
+!.env.example
+.autofi-state.json*
+contracts
+*.md
