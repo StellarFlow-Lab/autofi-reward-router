@@ -42,7 +42,7 @@ src/
 
 ## Quick start
 
-Requires Node.js 20.12+.
+Requires Node.js 22.12+.
 
 ```bash
 npm ci
