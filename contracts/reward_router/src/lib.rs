@@ -22,6 +22,10 @@ impl RewardRouter {
             prefs.off_ramp_pct.checked_add(prefs.keep_crypto_pct) == Some(100),
             "allocations must sum to 100"
         );
+        assert!(
+            prefs.anchor_asset_code.len() >= 1 && prefs.anchor_asset_code.len() <= 12,
+            "anchor asset code must be 1-12 characters"
+        );
         env.storage().persistent().set(&user, &prefs);
     }
 
