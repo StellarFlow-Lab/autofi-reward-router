@@ -39,6 +39,12 @@ impl RewardRouter {
     pub fn has_preferences(env: Env, user: Address) -> bool {
         env.storage().persistent().has(&user)
     }
+
+    /// Lets a developer opt out: AutoFi then falls back to its defaults (or skips).
+    pub fn remove_preferences(env: Env, user: Address) {
+        user.require_auth();
+        env.storage().persistent().remove(&user);
+    }
 }
 
 #[cfg(test)]
