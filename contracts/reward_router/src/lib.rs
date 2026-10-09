@@ -55,7 +55,7 @@ mod test {
     #[test]
     fn test_set_and_get_preferences() {
         let env = Env::default();
-        let contract_id = env.register_contract(None, RewardRouter);
+        let contract_id = env.register(RewardRouter, ());
         let client = RewardRouterClient::new(&env, &contract_id);
         let user = Address::generate(&env);
 
@@ -78,7 +78,7 @@ mod test {
     #[should_panic(expected = "allocations must sum to 100")]
     fn test_invalid_split_panics() {
         let env = Env::default();
-        let contract_id = env.register_contract(None, RewardRouter);
+        let contract_id = env.register(RewardRouter, ());
         let client = RewardRouterClient::new(&env, &contract_id);
         let user = Address::generate(&env);
 
