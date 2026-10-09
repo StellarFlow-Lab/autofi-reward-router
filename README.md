@@ -53,6 +53,16 @@ npm start                 # or: npm run dev
 
 The example config runs on testnet in dry-run mode, routing 70% of each reward to Stellar's reference anchor (SRT), so you can try the full flow without real funds. Set `DRY_RUN=false` to submit transactions.
 
+## Deploy with Docker
+
+```bash
+cp .env.example .env      # fill it in (mainnet needs ADMIN_TOKEN)
+docker compose up -d --build
+docker compose logs -f
+```
+
+The container runs as a non-root user, keeps its state on the `autofi-data` volume, restarts automatically, and is marked unhealthy when `/health` returns 503. The port is bound to `127.0.0.1`; put a TLS reverse proxy in front if the web app or GitHub webhook needs to reach it. Keep `HTTP_PORT` at 8080 inside the container.
+
 ## Smart contract
 
 ```bash

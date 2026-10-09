@@ -1,0 +1,17 @@
+# Run with:  docker compose up -d --build
+# Logs:      docker compose logs -f
+services:
+  autofi:
+    build: .
+    env_file: .env
+    environment:
+      STATE_FILE: /data/autofi-state.json
+    ports:
+      - "127.0.0.1:8080:8080" # localhost only; put a TLS reverse proxy in front to expose it
+    volumes:
+      - autofi-data:/data
+    restart: unless-stopped
+    stop_grace_period: 20s
+
+volumes:
+  autofi-data:
