@@ -94,4 +94,27 @@ mod test {
             },
         );
     }
+
+    #[test]
+    fn test_has_and_remove_preferences() {
+        let env = Env::default();
+        let contract_id = env.register(RewardRouter, ());
+        let client = RewardRouterClient::new(&env, &contract_id);
+        let user = Address::generate(&env);
+        env.mock_all_auths();
+
+        assert!(!client.has_preferences(&user));
+        client.set_preferences(
+            &user,
+            &RoutePreferences {
+                off_ramp_pct: 100,
+                keep_crypto_pct: 0,
+                anchor_asset_code: String::from_str(&env, "USDC"),
+                anchor_issuer: Address::generate(&env),
+            },
+        );
+        assert!(client.has_preferences(&user));
+        client.remove_preferences(&user);
+        assert!(!client.has_preferences(&user));
+    }
 }
