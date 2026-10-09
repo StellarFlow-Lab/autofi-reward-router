@@ -135,4 +135,22 @@ mod test {
             },
         );
     }
+
+    #[test]
+    #[should_panic]
+    fn test_set_requires_auth() {
+        let env = Env::default();
+        let contract_id = env.register(RewardRouter, ());
+        let client = RewardRouterClient::new(&env, &contract_id);
+        // no mock_all_auths → require_auth must fail
+        client.set_preferences(
+            &Address::generate(&env),
+            &RoutePreferences {
+                off_ramp_pct: 50,
+                keep_crypto_pct: 50,
+                anchor_asset_code: String::from_str(&env, "USDC"),
+                anchor_issuer: Address::generate(&env),
+            },
+        );
+    }
 }
