@@ -19,7 +19,10 @@
     "lint": "tsc --noEmit",
     "contract:build": "cd contracts/reward_router && stellar contract build",
     "contract:test": "cd contracts/reward_router && cargo test",
-    "check": "npm run typecheck && npm test && npm run build && npm run contract:test"
+    "check": "npm run typecheck && npm test && npm run build && npm run contract:test",
+    "testnet:setup": "ts-node scripts/testnet.ts setup",
+    "testnet:reward": "ts-node scripts/testnet.ts reward",
+    "testnet:balances": "ts-node scripts/testnet.ts balances"
   },
   "dependencies": {
     "@stellar/stellar-sdk": "17.2.1"
