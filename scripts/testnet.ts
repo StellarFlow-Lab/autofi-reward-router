@@ -4,7 +4,7 @@
  *   npm run testnet:setup            create + fund accounts, seed a DEX market, write .env
  *   npm run testnet:reward -- 25     pay the app 25 XLM from the "Drips" payer account
  *   npm run testnet:balances         show the app wallet's balances
- *   npm run testnet:anchor -- 500    get test SRT from testanchor.stellar.org and open an SRT/XLM market
+ *   npm run testnet:anchor -- 10     get test SRT from testanchor.stellar.org and open an SRT/XLM market
  *   npm run testnet:prefs -- 60 SRT  store a 60% off-ramp rule (to SRT or NGNX) in the reward_router contract
  *
  * Testnet only. Nothing here can touch mainnet funds.
@@ -179,7 +179,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 async function anchor(amountArg?: string) {
   const env = readEnv();
   if (!env.TESTNET_PAYER_SECRET) throw new Error('Run `npm run testnet:setup` first.');
-  const amount = amountArg ?? '500';
+  const amount = amountArg ?? '10'; // testanchor.stellar.org caps deposits at 10
   const payer = Keypair.fromSecret(env.TESTNET_PAYER_SECRET);
   const srt = new Asset(TESTNET_SRT_ANCHOR.code, TESTNET_SRT_ANCHOR.issuer);
 
@@ -212,12 +212,18 @@ async function anchor(amountArg?: string) {
   const bal = await srtBalance();
   if (!bal || Number(bal) <= 0) throw new Error('Deposit did not arrive in time; run the command again once it completes.');
 
-  console.log(`3/3 Offering ${bal} SRT for XLM (1 SRT = 1 XLM)`);
-  await submit(payer, [Operation.manageSellOffer({ selling: srt, buying: Asset.native(), amount: bal, price: '1' })]);
+  // Price just above the best existing bid so the offer rests on the book
+  // instead of being filled immediately by other testnet traders.
+  const book = await server.orderbook(srt, Asset.native()).limit(1).call();
+  const bestBid = Number(book.bids[0]?.price ?? 0);
+  const price = (bestBid > 0 ? bestBid * 1.1 : 1).toFixed(7);
+  console.log(`3/3 Offering ${bal} SRT for XLM at ${price} XLM each`);
+  await submit(payer, [Operation.manageSellOffer({ selling: srt, buying: Asset.native(), amount: bal, price })]);
   console.log(`
 Done. AutoFi can now swap XLM -> SRT. To route rewards to the test anchor:
   npm run testnet:prefs -- 60 SRT     (on-chain rule: 60% to SRT)
-  set SEP24_ENABLED=true in .env, restart npm run dev, then npm run testnet:reward -- 20`);
+  set SEP24_ENABLED=true in .env, restart npm run dev, then npm run testnet:reward -- 50
+  (the test anchor accepts withdrawals of 1-10 SRT)`);
 }
 
 /** Store an off-ramp rule for the app wallet in the reward_router contract. */
