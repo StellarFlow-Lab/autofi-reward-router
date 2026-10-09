@@ -38,6 +38,7 @@ src/
   server/                  HTTP server and GitHub webhook parsing
   utils/                   amount math, validation, logging, metrics, retry
   __tests__/               Jest test suites
+scripts/testnet.ts         testnet kit: set up a test wallet and send it rewards
 ```
 
 ## Quick start
@@ -52,6 +53,26 @@ npm start                 # or: npm run dev
 ```
 
 The example config runs on testnet in dry-run mode, routing 70% of each reward to Stellar's reference anchor (SRT), so you can try the full flow without real funds. Set `DRY_RUN=false` to submit transactions.
+
+## Try it on testnet (5 minutes, no real money)
+
+```bash
+npm ci
+npm run testnet:setup          # creates + funds test accounts, opens a test NGNX market, writes .env
+npm run dev                    # start AutoFi and leave it running
+```
+
+In a second terminal:
+
+```bash
+npm run testnet:reward -- 25   # a "Drips" payer sends your wallet 25 XLM
+npm run testnet:balances       # ~17.5 XLM swapped to NGNX, the rest kept as XLM
+curl localhost:8080/rewards    # the reward's full history
+```
+
+What happens: AutoFi sees the payment, reads the split (70% off-ramp by default), swaps that share into NGNX on the testnet DEX with slippage protection, and records the result. The test NGNX has no real anchor, so the kit turns off the SEP-24 bank step (`SEP24_ENABLED=false`). To try the bank step, set `DEFAULT_ANCHOR=SRT` and `SEP24_ENABLED=true` to use Stellar's reference test anchor. It needs an XLM/SRT route on the testnet DEX.
+
+Add `ALERT_WEBHOOK_URL` (a Slack or Discord webhook) to get a message for every payout or failure.
 
 ## Deploy with Docker
 
